@@ -9,16 +9,36 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+
+// CORS configuration for production
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://temchat.netlify.app',
+    'https://chat-applicaton-sever.onrender.com'
+];
+
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // Allow all origins for dev
-        methods: ["GET", "POST"]
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
+    credentials: true
+}));
 
 // Serve static files from uploads directory
 import { fileURLToPath } from 'url';
