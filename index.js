@@ -20,13 +20,22 @@ const io = new Server(httpServer, {
 app.use(express.json());
 app.use(cors());
 
+// Serve static files from uploads directory
+import { fileURLToPath } from 'url';
+import path from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 import authRoutes from './routes/auth.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import messageRoutes from './routes/message.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 
 app.use('/api/user', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Database Connection
 const startServer = async () => {
