@@ -24,17 +24,33 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter to accept only specific file types
+// File filter to accept various file types
 const fileFilter = (req, file, cb) => {
-    // Allowed file types
-    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|mp4|avi|mov|mp3|wav|zip/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    // Allowed file extensions
+    const allowedExts = /jpeg|jpg|png|gif|webp|pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|mp4|avi|mov|mkv|webm|mp3|wav|m4a|zip|rar|7z/;
+    // Check extension
+    const extname = allowedExts.test(path.extname(file.originalname).toLowerCase());
+    // Check mime type (allow broad categories)
+    const mimetype =
+        file.mimetype.startsWith('image/') ||
+        file.mimetype.startsWith('video/') ||
+        file.mimetype.startsWith('audio/') ||
+        file.mimetype.startsWith('text/') ||
+        file.mimetype === 'application/pdf' ||
+        file.mimetype.includes('msword') ||
+        file.mimetype.includes('officedocument') ||
+        file.mimetype.includes('zip') ||
+        file.mimetype.includes('compressed') ||
+        file.mimetype.includes('csv') ||
+        file.mimetype.includes('excel') ||
+        file.mimetype.includes('spreadsheet') ||
+        file.mimetype.includes('powerpoint') ||
+        file.mimetype.includes('presentation');
 
     if (extname && mimetype) {
         return cb(null, true);
     } else {
-        cb(new Error('Invalid file type. Only images, documents, videos, and audio files are allowed.'));
+        cb(new Error(`Invalid file type provided. (${file.mimetype})`));
     }
 };
 

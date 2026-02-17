@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import User from './models/user.model.js'; // Import User model
 
 dotenv.config();
 
@@ -13,6 +14,9 @@ const httpServer = createServer(app);
 // CORS configuration for production
 const allowedOrigins = [
     'http://localhost:3000',
+    'http://localhost:5173', // Vite dev server
+    'http://localhost:3001', // Your custom Vite port
+    'http://127.0.0.1:5173', // Vite dev server IP
     'https://temchat.netlify.app',
     'https://chat-applicaton-sever.onrender.com'
 ];
@@ -26,12 +30,14 @@ const io = new Server(httpServer, {
 });
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         if (allowedOrigins.indexOf(origin) === -1) {
+            console.log('🚫 CORS Blocked Origin:', origin); // Log the blocked origin
             const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
             return callback(new Error(msg), false);
         }
@@ -82,6 +88,15 @@ io.on("connection", (socket) => {
     socket.on("setup", (userData) => {
         socket.join(userData._id);
         socket.emit("connected");
+
+        // Update user status to online
+        User.findByIdAndUpdate(userData._id, {
+            isOnline: true,
+            lastSeen: new Date()
+        }).then(() => {
+            // Notify other users
+            socket.broadcast.emit("user-online", { userId: userData._id });
+        });
     });
 
     socket.on("join chat", (room) => {
@@ -124,8 +139,44 @@ io.on("connection", (socket) => {
         io.to(data.to).emit("call-ended");
     });
 
-    socket.on("off setup", () => {
+    // Reaction Events
+    socket.on("add-reaction", (data) => {
+        const { chatId, message } = data;
+        socket.in(chatId).emit("reaction-added", message);
+    });
+
+    socket.on("remove-reaction", (data) => {
+        const { chatId, message } = data;
+        socket.in(chatId).emit("reaction-removed", message);
+    });
+
+    socket.on("disconnect", () => {
         console.log("USER DISCONNECTED");
+        // Update user status to offline
+        if (socket.userId) {
+            User.findByIdAndUpdate(socket.userId, {
+                isOnline: false,
+                lastSeen: new Date()
+            }).then(() => {
+                socket.broadcast.emit("user-offline", {
+                    userId: socket.userId,
+                    lastSeen: new Date()
+                });
+            });
+        }
+    });
+
+    socket.on("off setup", (userData) => {
+        console.log("USER DISCONNECTED");
+        User.findByIdAndUpdate(userData._id, {
+            isOnline: false,
+            lastSeen: new Date()
+        }).then(() => {
+            socket.broadcast.emit("user-offline", {
+                userId: userData._id,
+                lastSeen: new Date()
+            });
+        });
         socket.leave(userData._id);
     });
 });
